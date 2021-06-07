@@ -4,14 +4,13 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.awt.BorderLayout;
-import java.awt.Color;
+import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
 import java.util.stream.Stream;
 
 import javax.print.PrintService;
@@ -31,25 +30,40 @@ import javax.swing.SwingUtilities;
 public class FilesPrinter implements ActionListener {
 	
 	JFrame frame;
-	JPanel dataPanel;
+	private JPanel dataPanel = new JPanel();
+	private JPanel changePanel = new JPanel();
 	JTextField tfPrinter;
 	JTextField tfDir;
 	JTextField tfTimer;
+	JButton bSetPrinter;
+	JButton bSetDir;
+	
+	FilesPrinter() {
+		//initVars();
+	}
+	
+	public JPanel getDataPanel() {
+		return dataPanel;
+	}
+	
+	public JPanel getChangePanel() {
+		return changePanel;
+	}
 
 
 	public void gui() {
 		frame = new JFrame("HigeFilesPrinter");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setBounds(30,30,500,300);
-		BorderLayout bl = new BorderLayout();
-		frame.getContentPane().setLayout(bl);
-		//super.setLocationRelativeTo(null);
+		//frame.setLocationRelativeTo(null);
+		//BorderLayout bl = new BorderLayout();
+		//frame.getContentPane().setLayout(bl);
 		initMenu();
-		dataPanel = new JPanel();
-		frame.add(dataPanel);
 		
 		showData();
 		
+		frame.add(getDataPanel());
+		
+		frame.pack();
 		frame.setVisible(true);
 	}//display that gui!
 	
@@ -99,19 +113,70 @@ public class FilesPrinter implements ActionListener {
 	}//to be replacing strings with constants
 	
 	private void showData() {
+
 		GridBagLayout gbl = new GridBagLayout();
 		dataPanel.setLayout(gbl);
-		dataPanel.add(new JLabel("Current printer:"));
-		tfPrinter = new JTextField();
+		GridBagConstraints gc = new GridBagConstraints();
+		
+		gc.insets = new Insets(3,3,3,3);
+		gc.gridx = 0;
+		gc.gridy = 0;
+		gc.anchor = GridBagConstraints.WEST;
+		dataPanel.add(new JLabel("Current printer:"), gc);
+		
+		tfPrinter = new JTextField(24);
 		tfPrinter.setEditable(false);
 		tfPrinter.setText(this.getPrinter().getName());
-		dataPanel.add(tfPrinter);
+		gc = new GridBagConstraints();
+		gc.insets = new Insets(3,3,3,3);
+		gc.gridx = 1;
+		gc.gridy = 0;
+		gc.anchor = GridBagConstraints.WEST;
+		dataPanel.add(tfPrinter, gc);
+		
+		bSetPrinter = new JButton();
+		bSetPrinter.setText("Select Printer");
+		bSetPrinter.setName("SetPrinterButton");//no use for now
+		bSetPrinter.addActionListener(this);
+		gc = new GridBagConstraints();
+		gc.insets = new Insets(3,3,3,3);
+		gc.gridx = 2;
+		gc.gridy = 0;
+		gc.anchor = GridBagConstraints.CENTER;
+		gc.fill = GridBagConstraints.BOTH;
+		dataPanel.add(bSetPrinter, gc);
+		
+		gc = new GridBagConstraints();
+		gc.insets = new Insets(3,3,3,3);
+		gc.gridx = 0;
+		gc.gridy = 1;
+		gc.anchor = GridBagConstraints.WEST;
+		dataPanel.add(new JLabel("Working Directory:"), gc);
+		
+		tfDir = new JTextField(24);
+		tfDir.setEditable(false);
+		tfDir.setText(this.getPath());
+		gc = new GridBagConstraints();
+		gc.insets = new Insets(3,3,3,3);
+		gc.gridx = 1;
+		gc.gridy = 1;
+		gc.anchor = GridBagConstraints.WEST;
+		dataPanel.add(tfDir, gc);
+		
+		bSetDir = new JButton();
+		bSetDir.setText("Select Directory");
+		bSetDir.setName("SetDirButton");//no use for now
+		bSetDir.addActionListener(this);
+		gc = new GridBagConstraints();
+		gc.insets = new Insets(3,3,3,3);
+		gc.gridx = 2;
+		gc.gridy = 1;
+		gc.anchor = GridBagConstraints.CENTER;
+		gc.fill = GridBagConstraints.BOTH;
+		dataPanel.add(bSetDir, gc);
+		
 		//FROM HERE!!
 	}//show all the settings and buttons to change them
-	
-	private void listCurrentPrefs() {
-		
-	}
 	
 	private PrintService printer = PrintServiceLookup.lookupDefaultPrintService();
 	/**
@@ -175,26 +240,22 @@ public class FilesPrinter implements ActionListener {
 		JOptionPane.showMessageDialog(null, path);
 	}
 	
-	/*
-	void askNewPrinter() {
+	
+	PrintService askNewPrinter() {
 		PrintService[] services = PrintServiceLookup.lookupPrintServices(null, null);
-		Object[] options;
-		int i = -1;
-		for (PrintService p : services) {
-			++i;
-			options[]
-		}
-		String s = (String)JOptionPane.showInputDialog(null,
+		PrintService p = (PrintService)JOptionPane.showInputDialog(null,
 												"Available printers:",
 												"Select printer",
 												JOptionPane.PLAIN_MESSAGE,
 												null,
-												options,
-												getPrinter().getName());
-		
+												services,
+												services[0]);
+		if (p == null) {
+			return getPrinter();
+		}
+		return p;
 		
 	}
-	*/
 	
 	void checkFiles() {
 		try (Stream<Path> paths = Files.list(Paths.get(path))) {
@@ -218,15 +279,20 @@ public class FilesPrinter implements ActionListener {
 			//addcode
 		}
 		
-		if (choise.equals("Choose Directory")) {
+		if (choise.equals("Select Directory")) {
 			this.askNewPath();
+			tfDir.setText(path);
 		}
+		
+		if (choise.equals("Select Printer")) {
+			setPrinter(this.askNewPrinter());
+			tfPrinter.setText(getPrinter().getName());
+		}
+		
 		if (choise.equals("Set Print Timing")) {
 			//this.setTimer();
 		}
-		if (choise.equals("Choose Printer")) {
-			//this.askNewPrinter();
-		}
+		
 	}
 	
 	private final static MouseListener mouseAction = new MouseAdapter() { //mouse event
