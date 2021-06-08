@@ -29,17 +29,28 @@ import javax.swing.SwingUtilities;
 
 public class FilesPrinter implements ActionListener {
 	
-	JFrame frame;
-	private JPanel dataPanel = new JPanel();
-	private JPanel changePanel = new JPanel();
+	JFrame frame;//mainframe
+	private JPanel dataPanel = new JPanel();//where the data is shown and changed
+	private JPanel changePanel = new JPanel();//nothing yet
 	JTextField tfPrinter;
 	JTextField tfDir;
 	JTextField tfTimer;
 	JButton bSetPrinter;
 	JButton bSetDir;
+	JButton bSetTimer;
+	
+	private PrintService printer;	//what printer will be used
+	private String path;			//the directory from where the files will be printed
+	private int printTimer;			//time (in minutes) between file checks
 	
 	FilesPrinter() {
 		//initVars();
+		
+		//this is the default ones, in case we have no configuration file
+		//will also make and read configuration file ... one day ...
+		printer = PrintServiceLookup.lookupDefaultPrintService();
+		path = System.getProperty("user.dir");
+		printTimer = 15;
 	}
 	
 	public JPanel getDataPanel() {
@@ -175,10 +186,37 @@ public class FilesPrinter implements ActionListener {
 		gc.fill = GridBagConstraints.BOTH;
 		dataPanel.add(bSetDir, gc);
 		
+		gc = new GridBagConstraints();
+		gc.insets = new Insets(3,3,3,3);
+		gc.gridx = 0;
+		gc.gridy = 2;
+		gc.anchor = GridBagConstraints.WEST;
+		dataPanel.add(new JLabel("Printing Timer:"), gc);
+		
+		tfTimer = new JTextField(24);
+		tfTimer.setEditable(false);
+		tfTimer.setText(String.valueOf(getPrintTimer() + " Minutes"));
+		gc = new GridBagConstraints();
+		gc.insets = new Insets(3,3,3,3);
+		gc.gridx = 1;
+		gc.gridy = 2;
+		gc.anchor = GridBagConstraints.WEST;
+		dataPanel.add(tfTimer, gc);
+		
+		bSetTimer = new JButton();
+		bSetTimer.setText("Set Print Timer");
+		bSetTimer.setName("SetTimerButton");//no use for now
+		bSetTimer.addActionListener(this);
+		gc = new GridBagConstraints();
+		gc.insets = new Insets(3,3,3,3);
+		gc.gridx = 2;
+		gc.gridy = 2;
+		gc.anchor = GridBagConstraints.CENTER;
+		gc.fill = GridBagConstraints.BOTH;
+		dataPanel.add(bSetTimer, gc);
 		//FROM HERE!!
 	}//show all the settings and buttons to change them
 	
-	private PrintService printer = PrintServiceLookup.lookupDefaultPrintService();
 	/**
 	 * @return the printer
 	 */
@@ -192,9 +230,6 @@ public class FilesPrinter implements ActionListener {
 		this.printer = printer;
 	}
 	
-	private String path = System.getProperty("user.dir");
-	//private File[] listOfFiles; bad way
-	
 	String getPath() {
 		return path;
 	}
@@ -202,19 +237,17 @@ public class FilesPrinter implements ActionListener {
 		this.path = s;
 	}//setting the working directory//don't think i need this
 	
-	private int printTimer = 0;
-	
 	/**
 	 * @return the printTimer
 	 */
-	public int getPrintTimer() {
+	int getPrintTimer() {
 		return printTimer;
 	}
 
 	/**
 	 * @param printTimer the printTimer to set
 	 */
-	public void setPrintTimer(int printTimer) {
+	void setPrintTimer(int printTimer) {
 		this.printTimer = printTimer;
 	}
 	
@@ -236,10 +269,27 @@ public class FilesPrinter implements ActionListener {
 		}
 	}//will be called by a button press or something
 	
+	int askNewTimer() {
+		int i;
+		try {
+			i = Integer.parseInt(JOptionPane.showInputDialog(null,
+																"Select time between filechecks:",
+																"Set Timer",
+																JOptionPane.PLAIN_MESSAGE));
+		} catch (Exception e) {
+			i = this.getPrintTimer();
+		}
+		if ((i < 10) || (i > 1440)) {
+			i = this.getPrintTimer();
+		}
+		return i;
+	}
+	
+	/*
 	void printVar() {
 		JOptionPane.showMessageDialog(null, path);
 	}
-	
+	*/
 	
 	PrintService askNewPrinter() {
 		PrintService[] services = PrintServiceLookup.lookupPrintServices(null, null);
@@ -254,8 +304,7 @@ public class FilesPrinter implements ActionListener {
 			return getPrinter();
 		}
 		return p;
-		
-	}
+	}//the method to set new printer
 	
 	void checkFiles() {
 		try (Stream<Path> paths = Files.list(Paths.get(path))) {
@@ -289,8 +338,9 @@ public class FilesPrinter implements ActionListener {
 			tfPrinter.setText(getPrinter().getName());
 		}
 		
-		if (choise.equals("Set Print Timing")) {
-			//this.setTimer();
+		if (choise.equals("Set Print Timer")) {
+			setPrintTimer(this.askNewTimer());
+			tfTimer.setText(String.valueOf(getPrintTimer()) + " Minutes");
 		}
 		
 	}
