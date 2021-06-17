@@ -4,6 +4,9 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.io.File;
+import java.io.IOException;
+import java.awt.Desktop;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -11,8 +14,16 @@ import java.awt.event.ActionEvent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.chrono.ChronoLocalDateTime;
+import java.util.Date;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+import javax.print.DocFlavor;
 import javax.print.PrintService;
 import javax.print.PrintServiceLookup;
 import javax.swing.JButton;
@@ -27,31 +38,52 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
+import org.docx4j.Docx4J;
+import org.docx4j.openpackaging.exceptions.Docx4JException;
+
+
 public class FilesPrinter implements ActionListener {
 	
 	JFrame frame;//mainframe
 	private JPanel dataPanel = new JPanel();//where the data is shown and changed
 	private JPanel changePanel = new JPanel();//nothing yet
+	ScheduledExecutorService schEx = Executors.newSingleThreadScheduledExecutor();
+	ScheduledFuture<?> printHandle;
 	JTextField tfPrinter;
 	JTextField tfDir;
 	JTextField tfTimer;
 	JButton bSetPrinter;
 	JButton bSetDir;
 	JButton bSetTimer;
+	LocalDateTime date;
 	
 	private PrintService printer;	//what printer will be used
-	private String path;			//the directory from where the files will be printed
+	private Path path;			//the directory from where the files will be printed
 	private int printTimer;			//time (in minutes) between file checks
+	private Path[] files;
 	
 	FilesPrinter() {
 		//initVars();
 		
 		//this is the default ones, in case we have no configuration file
 		//will also make and read configuration file ... one day ...
-		printer = PrintServiceLookup.lookupDefaultPrintService();
-		path = System.getProperty("user.dir");
-		printTimer = 15;
+		this.printer = PrintServiceLookup.lookupDefaultPrintService();
+		this.path = Paths.get(System.getProperty("user.dir"));
+		this.printTimer = 15;
+		this.date = LocalDateTime.now();
 	}
+	
+	class PrintJob implements Runnable {
+
+		@Override
+		public void run() {
+			// TODO Auto-generated method stub
+			date = LocalDateTime.now();
+			checkLogFolder();
+			checkFiles();
+			printFiles();
+		}
+	}//for testing
 	
 	public JPanel getDataPanel() {
 		return dataPanel;
@@ -63,8 +95,8 @@ public class FilesPrinter implements ActionListener {
 
 
 	public void gui() {
-		frame = new JFrame("HigeFilesPrinter");
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		this.frame = new JFrame("HigeFilesPrinter");
+		this.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		//frame.setLocationRelativeTo(null);
 		//BorderLayout bl = new BorderLayout();
 		//frame.getContentPane().setLayout(bl);
@@ -72,10 +104,10 @@ public class FilesPrinter implements ActionListener {
 		
 		showData();
 		
-		frame.add(getDataPanel());
+		this.frame.add(getDataPanel());
 		
-		frame.pack();
-		frame.setVisible(true);
+		this.frame.pack();
+		this.frame.setVisible(true);
 	}//display that gui!
 	
 	public static void main(String[] args) {
@@ -166,7 +198,7 @@ public class FilesPrinter implements ActionListener {
 		
 		tfDir = new JTextField(24);
 		tfDir.setEditable(false);
-		tfDir.setText(this.getPath());
+		tfDir.setText(this.getPath().toString());
 		gc = new GridBagConstraints();
 		gc.insets = new Insets(3,3,3,3);
 		gc.gridx = 1;
@@ -215,7 +247,39 @@ public class FilesPrinter implements ActionListener {
 		gc.fill = GridBagConstraints.BOTH;
 		dataPanel.add(bSetTimer, gc);
 		//FROM HERE!!
+		
+		//for testing I will place a call to PrintJob() here, will later place after initializing all variables
+		//printHandle = schEx.scheduleWithFixedDelay(new PrintJob(), 1, getPrintTimer(), TimeUnit.SECONDS);
 	}//show all the settings and buttons to change them
+	
+	
+	void checkLogFolder() {
+		String logPath = path.toString() + "/PrintLogs";
+		if (!Files.isDirectory(Paths.get(logPath))) {
+			try {
+				Files.createDirectory(Paths.get(logPath));
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		//String day = date.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);//use later
+	}//checks the folder with the logs (and zips) so many TODOs
+	
+	void printFiles() {
+		for (Path p : files) {
+			//p.toString();
+			if ((p.getFileName().toString().endsWith("doc")) || (p.getFileName().toString().endsWith("docx"))) {
+				try {
+					
+					Docx4J.toPDF(null, null);
+				} catch (Docx4JException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+	}
 	
 	/**
 	 * @return the printer
@@ -230,11 +294,11 @@ public class FilesPrinter implements ActionListener {
 		this.printer = printer;
 	}
 	
-	String getPath() {
+	Path getPath() {
 		return path;
 	}
-	void setPath(String s) {
-		this.path = s;
+	void setPath(Path p) {
+		this.path = p;
 	}//setting the working directory//don't think i need this
 	
 	/**
@@ -259,7 +323,7 @@ public class FilesPrinter implements ActionListener {
 		if (returnVal == JFileChooser.APPROVE_OPTION) {
 			try {
 				if (fc.getSelectedFile().exists()) {
-					String s = fc.getSelectedFile().getCanonicalPath();
+					Path s = fc.getSelectedFile().toPath();
 					setPath(s);
 				}
 			} catch (Exception e) {
@@ -306,17 +370,23 @@ public class FilesPrinter implements ActionListener {
 		return p;
 	}//the method to set new printer
 	
+	/*
+	 * void printFile(File f) {
+	 * 
+	 * }
+	 */
+	
 	void checkFiles() {
-		try (Stream<Path> paths = Files.list(Paths.get(path))) {
-		    paths
-		        .filter(Files::isRegularFile)//not folders or symbolic links or other stuff
-		    	.forEach(System.out::println);//insert operations on files
+		try (Stream<Path> paths = Files.list(path)) {
+			files = paths
+				.filter(Files::isRegularFile)//not folders or symbolic links or other stuff
+				.toArray(Path[]::new);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}//we go and check for files in $path and operate on them
-
+	
 	@Override
 	public void actionPerformed(ActionEvent ae) {
 		String choise = ae.getActionCommand();
@@ -330,7 +400,7 @@ public class FilesPrinter implements ActionListener {
 		
 		if (choise.equals("Select Directory")) {
 			this.askNewPath();
-			tfDir.setText(path);
+			tfDir.setText(path.toString());
 		}
 		
 		if (choise.equals("Select Printer")) {
@@ -341,6 +411,9 @@ public class FilesPrinter implements ActionListener {
 		if (choise.equals("Set Print Timer")) {
 			setPrintTimer(this.askNewTimer());
 			tfTimer.setText(String.valueOf(getPrintTimer()) + " Minutes");
+			printHandle.cancel(true);
+			printHandle = schEx.scheduleWithFixedDelay(new PrintJob(), 1, getPrintTimer(), TimeUnit.SECONDS);
+			//SECONDS will be set to MINUTES later
 		}
 		
 	}
