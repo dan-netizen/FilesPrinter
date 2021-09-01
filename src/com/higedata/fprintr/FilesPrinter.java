@@ -24,6 +24,7 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.chrono.ChronoLocalDateTime;
 import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -61,27 +62,13 @@ import org.apache.pdfbox.pdmodel.interactive.viewerpreferences.PDViewerPreferenc
 import org.apache.pdfbox.printing.PDFPageable;
 import org.apache.pdfbox.printing.PDFPrintable;
 
-import org.docx4j.Docx4J;
-import org.docx4j.convert.out.Documents4jConversionSettings;
-import org.docx4j.openpackaging.exceptions.Docx4JException;
-import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
-import com.documents4j.api.DocumentType;
-import com.documents4j.api.IConverter;
-import com.documents4j.job.LocalConverter;
-
-import org.docx4j.openpackaging.packages.Filetype;
-import org.docx4j.openpackaging.packages.OpcPackage;
-import org.docx4j.openpackaging.packages.PresentationMLPackage;
-import org.docx4j.openpackaging.packages.SpreadsheetMLPackage;
-import org.docx4j.documents4j.local.Documents4jLocalServices;
-
 import com.jacob.activeX.*;
 import com.jacob.com.*;
 
 public class FilesPrinter implements ActionListener {
 	
 	JFrame frame;//mainframe
-	private JPanel dataPanel = new JPanel();//where the data is shown and changed
+	private JPanel dataPanel = new JPanel();//where data is shown and changed
 	private JPanel changePanel = new JPanel();//nothing yet
 	ScheduledExecutorService schEx = Executors.newSingleThreadScheduledExecutor();
 	ScheduledFuture<?> printHandle;
@@ -95,7 +82,7 @@ public class FilesPrinter implements ActionListener {
 	
 	private PrinterJob pjob = PrinterJob.getPrinterJob();
 	private PrintService printer;	//what printer will be used
-	private Path path;			//the directory from where the files will be printed
+	private Path path;			//directory from where the files will be printed
 	private int printTimer;			//time (in minutes) between file checks
 	private Path[] files;
 	private boolean canPrintPDF;
@@ -303,8 +290,10 @@ public class FilesPrinter implements ActionListener {
 		dataPanel.add(bSetTimer, gc);
 		//FROM HERE!!
 		
-		//for testing I will place a call to PrintJob() here, will later place after initializing all variables
-		printHandle = schEx.scheduleWithFixedDelay(new PrintJob(), 1, getPrintTimer(), TimeUnit.SECONDS);
+		//for testing I will place a call to PrintJob() here,
+		//will later place after initializing all variables
+		printHandle = schEx.scheduleWithFixedDelay(new PrintJob(), 1,
+				getPrintTimer(), TimeUnit.SECONDS);
 	}//show all the settings and buttons to change them
 	
 	
@@ -318,10 +307,16 @@ public class FilesPrinter implements ActionListener {
 				e.printStackTrace();
 			}
 		}
-		//String day = date.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);//use later
+		//String day = date.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+		//use later
 	}//checks the folder with the logs (and zips) so many TODOs
 	
 	void printPDF(String filePath) {
+		/**
+		 * Checks if printer natively supports PDF printing.
+		 * Directly prints the PDF file or uses Apache PDBox to build
+		 * a PDDocument out of it and print that.
+		 */
 		FileInputStream fileIn = null;
 		try {
 			fileIn = new FileInputStream(filePath);
@@ -358,108 +353,70 @@ public class FilesPrinter implements ActionListener {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-	}
+	}//printing the PDF
+
 	
-	
-	String convertDocx(String filePath) {
-		String tmpPath = "";
-		try {
-			File inFile = new File(filePath);
-			InputStream is = new FileInputStream(inFile);
-			WordprocessingMLPackage wmlp = WordprocessingMLPackage.load(is);
-			tmpPath = new String(filePath + ".pdf");
-			File tmpFile = new File(tmpPath);
-			FileOutputStream fos = new FileOutputStream(tmpFile);
-			Documents4jLocalServices exporter = new Documents4jLocalServices();
-			exporter.export(wmlp, fos);
-			fos.close();
-			is.close();
-		} catch(Exception e) {
-			e.printStackTrace();
-		}
-		return tmpPath;
+	String getFormat(String theFile) {
+		theFile = theFile.substring(theFile.lastIndexOf('.') + 1);
+		theFile.toLowerCase(Locale.ROOT);
+		return theFile;
 	}
 	
 	void printFiles() {
 		/**
 		 * Method to go trough FilesPrinter.files[];
-		 * If we find docx, we will convert them to pdf using docx4j;
+		 * If we find doc/x or xls/x we use office to print,
+		 * making use of jacob project.
 		 * If the printer does not support direct pdf printing,
 		 * we will use PDFBox library to print.
 		 */
 		for (Path path : this.files) {
-			//p.toString();
-			if ((path.getFileName().toString().endsWith("doc")) || (path.getFileName().toString().endsWith("docx"))) {//if file is docx
-				/*
-				String tmpPath = convertDocx(path.toString());
-				//we made a pdf file out of it
-				this.printPDF(tmpPath);
-				//print the pdf
-				 * 
-				 */
-				//convert a docx to a pdf and print it
+			String aFile = getFormat(path.getFileName().toString());
+			switch(aFile) {
+			case "pdf":
+				this.printPDF(path.toAbsolutePath().toString());
+				break;
+			case "doc":
+			case "docx":
+			case "odt":
+			case "txt":
+			case "rtf":
+				this.printDocx(path.toAbsolutePath().toString());
+				break;
+			case "xls":
+			case "xlsx":
+			case "ods":
+				this.printXlsx(path.toAbsolutePath().toString());
+				break;
+			
+			}
+			
+			if ((aFile.equalsIgnoreCase("doc"))||(aFile.equalsIgnoreCase("docx"))||(aFile.equalsIgnoreCase("rtf"))
+					||(aFile.equalsIgnoreCase("txt"))||(aFile.equalsIgnoreCase("odt"))) {//if file is textdocument
+
 				
 				this.printDocx(path.toAbsolutePath().toString());
 				
 			}
-			if ((path.getFileName().toString().endsWith("xls")) || (path.getFileName().toString().endsWith("xlsx"))) {
+			if ((aFile.equalsIgnoreCase("xls"))||(aFile.equalsIgnoreCase("xlsx"))||(aFile.equalsIgnoreCase("ods"))) {
 				this.printXlsx(path.toAbsolutePath().toString());
 			}
-			
-			/* there is no support for xlsx for now, this code does nothing
-			if (p.getFileName().toString().endsWith("xlsx")) {
-				try {
-					File inFile = p.toFile();
-					System.out.println(inFile);
-					InputStream is = new FileInputStream(inFile);
-					SpreadsheetMLPackage smlp = SpreadsheetMLPackage.load(inFile);
-					File tmpFile = new File(p.toString()+".pdf");
-					FileOutputStream fos = new FileOutputStream(tmpFile);
-					Documents4jLocalServices exporter = new Documents4jLocalServices();
-					System.out.println("loaded");	
-					//smlp.save(new File(p.toFile()+"v2.xlsx"));
-					//exporter.export(smlp, fos);
-					exporter.export(inFile, fos, DocumentType.MS_EXCEL);
-					
-					System.out.println("exporting xlsx");
-					fos.close();
-					is.close();
-					System.out.println("close streams xlsx");
-				} catch (Docx4JException | FileNotFoundException e) {
-					e.printStackTrace();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}//THERE is NO save as PDF for excel support, it tries to open word
-			//maybe in future version I will use other libraries
-			*/
+
+			if (path.getFileName().toString().endsWith("pdf")) {
+				this.printPDF(path.toAbsolutePath().toString());
+			}
 			
 		}
-	}
+	}//end of printing
 	
 	void printXlsx(String filePath) {
 		ActiveXComponent oExcel = new ActiveXComponent("Excel.Application");
 		oExcel.setProperty("Visible", new Variant(false));
-		//oExcel.setProperty("ActivePrinter", new Variant(this.getPrinter().getName()));//hangs here
-		/*
-		while (!oExcel.getPropertyAsBoolean("Ready")) {
-			//wait
-		}
-		*/
+		//oExcel.setProperty("ActivePrinter", new Variant(this
+		//	.getPrinter().getName()));//hangs here
 		Dispatch oWorkbooks = oExcel.getProperty("Workbooks").toDispatch();
-		/*
-		while (!oExcel.getPropertyAsBoolean("Ready")) {
-			//wait
-		}
-		*/
-		Dispatch oWorkbook = Dispatch.call(oWorkbooks, "Open", filePath).toDispatch();
-		/*
-		while (!oExcel.getPropertyAsBoolean("Ready")) {
-			//wait
-		}
-		*/
-		//oWorkbook = oExcel.getProperty("ThisWorkbook").toDispatch();
+		Dispatch oWorkbook = Dispatch.call(oWorkbooks, "Open", filePath)
+				.toDispatch();
 		
 		Variant From = Variant.VT_MISSING;
 		Variant To = Variant.DEFAULT;
@@ -493,21 +450,16 @@ public class FilesPrinter implements ActionListener {
 	
 	
 	void printDocx(String filePath) {
-		//System.out.println(filePath);
-		//System.out.println("Starting word");
 		this.oWord = new ActiveXComponent("Word.Application");
-		//System.out.println("setting visibility");
         this.oWord.setProperty("Visible", new Variant(false));
-        //System.out.println("setting printer");
-        //System.out.println(this.getPrinter().getName());
-        //System.out.println(this.pjob.toString());
-        this.oWord.setProperty("ActivePrinter", new Variant(this.getPrinter().getName()));
-        //this.oWord.setProperty("ActivePrinter", new Variant("Microsoft Print to PDF"));//for testing
-        //System.out.println("dispatching documents");
+        this.oWord.setProperty("ActivePrinter", new Variant(this.getPrinter()
+        		.getName()));
+        //this.oWord.setProperty("ActivePrinter", new Variant("Microsoft 
+        //	Print to PDF"));//for testing
         Dispatch oDocuments = oWord.getProperty("Documents").toDispatch();
-        Dispatch oDocument = Dispatch.call(oDocuments, "Open", filePath).toDispatch();
+        Dispatch oDocument = Dispatch.call(oDocuments, "Open", filePath)
+        		.toDispatch();
         
-        //System.out.println("building arguments");
         Variant Background= new Variant(false);           
         Variant Append = new Variant(false);                       
         Variant Range = new Variant(0); //> print out all document                       
@@ -529,13 +481,10 @@ public class FilesPrinter implements ActionListener {
         Variant PrintZoomPaperHeight = new Variant("");
         
          
-        //System.out.println("building argument array");
+        //building argument array
         Object[] args=new Object[]{Background,Append,Range,OutputFileName, From, To, Item, Copies, Pages, PageType,
         		PrintToFile, Collate, ActivePrinterMacGX, ManualDuplexPrint, PrintZoomColumn, PrintZoomRow,
         		PrintZoomPaperWidth, PrintZoomPaperHeight};          
-        //System.out.println("dispatching the printing");
-        //Dispatch.callN(oDocument, "PrintOut"); this works
-        //Dispatch.callN(oDocument, "PrintPreview"); this works
         /*
         Dispatch.callN(oDocument, "PrintOut", new Variant(false), new Variant(false), new Variant(0),
         		new Variant(filePath+".pdf"), new Variant(""), new Variant(""), new Variant(0),
@@ -545,7 +494,6 @@ public class FilesPrinter implements ActionListener {
         * Keeping this code for reminders
         */
         Dispatch.callN(oDocument, "PrintOut", args);
-        
         Dispatch.callN(oDocument, "Close");
         Dispatch.callN(oWord, "Quit");
         this.oWord.safeRelease();
@@ -614,9 +562,9 @@ public class FilesPrinter implements ActionListener {
 		int i;
 		try {
 			i = Integer.parseInt(JOptionPane.showInputDialog(null,
-																"Select time between filechecks:",
-																"Set Timer",
-																JOptionPane.PLAIN_MESSAGE));
+										"Select time between filechecks:",
+										"Set Timer",
+										JOptionPane.PLAIN_MESSAGE));
 		} catch (Exception e) {
 			i = this.getPrintTimer();
 		}
@@ -662,7 +610,7 @@ public class FilesPrinter implements ActionListener {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-	}//we go and check for files in $path and operate on them
+	}//we go and check for files in $path and make an array of them
 	
 	@Override
 	public void actionPerformed(ActionEvent ae) {
@@ -689,7 +637,7 @@ public class FilesPrinter implements ActionListener {
 			setPrintTimer(this.askNewTimer());
 			tfTimer.setText(String.valueOf(getPrintTimer()) + " Minutes");
 			printHandle.cancel(true);
-			printHandle = schEx.scheduleWithFixedDelay(new PrintJob(), 1, getPrintTimer(), TimeUnit.SECONDS);
+			printHandle = schEx.scheduleWithFixedDelay(new PrintJob(), 1, getPrintTimer(), TimeUnit.MINUTES);
 			//SECONDS will be set to MINUTES later
 		}
 		
