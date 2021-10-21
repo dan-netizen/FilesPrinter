@@ -13,6 +13,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.awt.Desktop;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -21,9 +22,10 @@ import java.awt.event.ActionEvent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.chrono.ChronoLocalDateTime;
-import java.util.Date;
 import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -62,8 +64,12 @@ import org.apache.pdfbox.pdmodel.interactive.viewerpreferences.PDViewerPreferenc
 import org.apache.pdfbox.printing.PDFPageable;
 import org.apache.pdfbox.printing.PDFPrintable;
 
-import com.jacob.activeX.*;
-import com.jacob.com.*;
+import com.jacob.activeX.ActiveXComponent;
+import com.jacob.com.ComThread;
+import com.jacob.com.Dispatch;
+import com.jacob.com.Variant;
+//import com.jacob.activeX.*;
+//import com.jacob.com.*; no use importing everything, right?
 
 public class FilesPrinter implements ActionListener {
 	
@@ -78,7 +84,9 @@ public class FilesPrinter implements ActionListener {
 	JButton bSetPrinter;
 	JButton bSetDir;
 	JButton bSetTimer;
-	LocalDateTime date;
+	LocalDateTime dateTime;
+	LocalDate date;
+	LocalTime time;
 	
 	private PrinterJob pjob = PrinterJob.getPrinterJob();
 	private PrintService printer;	//what printer will be used
@@ -90,6 +98,7 @@ public class FilesPrinter implements ActionListener {
 	private ActiveXComponent oWord;
 	private int copies;
 	private boolean isDuplex;
+	private String logPath, logPathDaily;
 	
 	FilesPrinter() {
 		//initVars();
@@ -105,7 +114,7 @@ public class FilesPrinter implements ActionListener {
 		}
 		this.path = Paths.get(System.getProperty("user.dir"));
 		this.printTimer = 100;
-		this.date = LocalDateTime.now();
+		//this.date = LocalDateTime.now(); old
 		this.canPrintPDF = false;
 		this.attr = new HashPrintRequestAttributeSet();
 		this.attr.add(new Copies(1));
@@ -120,7 +129,7 @@ public class FilesPrinter implements ActionListener {
 		@Override
 		public void run() {
 			// TODO Auto-generated method stub
-			date = LocalDateTime.now();
+			dateTime = LocalDateTime.now();//update the dateTime
 			checkLogFolder();
 			checkFiles();
 			printFiles();
@@ -136,7 +145,7 @@ public class FilesPrinter implements ActionListener {
 	}
 
 
-	public void gui() {
+	public void showGui() {
 		this.frame = new JFrame("HigeFilesPrinter");
 		this.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		//frame.setLocationRelativeTo(null);
@@ -149,6 +158,7 @@ public class FilesPrinter implements ActionListener {
 		this.frame.add(getDataPanel());
 		
 		this.frame.pack();
+		this.frame.setResizable(false);
 		this.frame.setVisible(true);
 	}//display that gui!
 	
@@ -158,7 +168,7 @@ public class FilesPrinter implements ActionListener {
 			@Override
 			public void run() {
 				FilesPrinter fpApp = new FilesPrinter();
-				fpApp.gui();
+				fpApp.showGui();
 			}
 		});
 		
@@ -298,7 +308,7 @@ public class FilesPrinter implements ActionListener {
 	
 	
 	void checkLogFolder() {
-		String logPath = this.path.toString() + "/PrintLogs";
+		logPath = this.path.toString() + "\\" + "PrintLogs";
 		if (!Files.isDirectory(Paths.get(logPath))) {
 			try {
 				Files.createDirectory(Paths.get(logPath));
@@ -307,12 +317,22 @@ public class FilesPrinter implements ActionListener {
 				e.printStackTrace();
 			}
 		}
-		//String day = date.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-		//use later
+		date = dateTime.toLocalDate();
+		logPathDaily = logPath + "\\" + "printlist" + date.toString() + ".txt";
+		if (!Files.isRegularFile(Paths.get(logPathDaily))) {
+			try {
+				Files.createFile(Paths.get(logPathDaily));
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		//time = dateTime.toLocalTime(); use when printing
 	}//checks the folder with the logs (and zips) so many TODOs
 	
 	void printPDF(String filePath) {
-		/**
+		/*
 		 * Checks if printer natively supports PDF printing.
 		 * Directly prints the PDF file or uses Apache PDBox to build
 		 * a PDDocument out of it and print that.
@@ -334,6 +354,7 @@ public class FilesPrinter implements ActionListener {
 			//create the print job
 			try {
 				this.getPrinter().createPrintJob().print(document, this.attr);
+				logPrint(filePath);
 			} catch (PrintException pe) {
 				pe.printStackTrace();
 			}
@@ -341,8 +362,9 @@ public class FilesPrinter implements ActionListener {
 			try {//we use Apache PDBox to make PDDoc from it
 				PDDocument document = PDDocument.load(fileIn);
 				this.pjob.setPageable(new PDFPageable(document));
-				pjob.print(this.attr);//and we print that
+				this.pjob.print(this.attr);//and we print that
 				document.close();
+				logPrint(filePath);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -363,7 +385,7 @@ public class FilesPrinter implements ActionListener {
 	}
 	
 	void printFiles() {
-		/**
+		/*
 		 * Method to go trough FilesPrinter.files[];
 		 * If we find doc/x or xls/x we use office to print,
 		 * making use of jacob project.
@@ -388,35 +410,37 @@ public class FilesPrinter implements ActionListener {
 			case "ods":
 				this.printXlsx(path.toAbsolutePath().toString());
 				break;
-			
-			}
-			
-			if ((aFile.equalsIgnoreCase("doc"))||(aFile.equalsIgnoreCase("docx"))||(aFile.equalsIgnoreCase("rtf"))
-					||(aFile.equalsIgnoreCase("txt"))||(aFile.equalsIgnoreCase("odt"))) {//if file is textdocument
-
-				
-				this.printDocx(path.toAbsolutePath().toString());
-				
-			}
-			if ((aFile.equalsIgnoreCase("xls"))||(aFile.equalsIgnoreCase("xlsx"))||(aFile.equalsIgnoreCase("ods"))) {
-				this.printXlsx(path.toAbsolutePath().toString());
-			}
-
-			if (path.getFileName().toString().endsWith("pdf")) {
-				this.printPDF(path.toAbsolutePath().toString());
-			}
-			
+			default:
+				//need to treat cases with images + exceptions
+				break;
+			}		
 		}
-	}//end of printing
+	}//end of printFiles
+	
+	void logPrint(String printedFile) {
+		PrintWriter pw;
+		try {
+			pw = new PrintWriter(new FileOutputStream(new File(this.logPathDaily), true));
+			pw.println(printedFile + "\t" + LocalTime.now().toString());
+			pw.flush();
+			pw.close();
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 	
 	void printXlsx(String filePath) {
+		/*
+		 * Uses jacob to call msexcel, open the spreadsheet and print it
+		 */
+		System.out.println("printing xls "+filePath);
 		ActiveXComponent oExcel = new ActiveXComponent("Excel.Application");
 		oExcel.setProperty("Visible", new Variant(false));
 		//oExcel.setProperty("ActivePrinter", new Variant(this
 		//	.getPrinter().getName()));//hangs here
 		Dispatch oWorkbooks = oExcel.getProperty("Workbooks").toDispatch();
-		Dispatch oWorkbook = Dispatch.call(oWorkbooks, "Open", filePath)
-				.toDispatch();
+		Dispatch oWorkbook = Dispatch.call(oWorkbooks, "Open", filePath).toDispatch();
 		
 		Variant From = Variant.VT_MISSING;
 		Variant To = Variant.DEFAULT;
@@ -427,7 +451,8 @@ public class FilesPrinter implements ActionListener {
 		Variant Collate = Variant.VT_TRUE;
 		Variant PrToFileName = new Variant(filePath + ".pdf");//testing
 		//Variant PrToFileName = Variant.VT_MISSING;
-		System.out.println("Printing");
+		//System.out.println("Printing");
+		//Is it printing to file? yes
 		Object[] args = new Object[] {From, To, Copies, Preview, ActivePrinter, PrintToFile, Collate, PrToFileName};
 		/*
 		Dispatch.callN(oWorkbook, "PrintOut", Variant.VT_MISSING, Variant.DEFAULT, new Variant(this.copies),
@@ -435,21 +460,27 @@ public class FilesPrinter implements ActionListener {
 				new Variant(filePath + ".pdf"));
 		*/
 		Dispatch.callN(oWorkbook, "PrintOut", args);
+		System.out.println("printed");
 		Dispatch.callN(oWorkbook, "Close");
 		Dispatch.callN(oWorkbooks, "Close");
 		try {
-			Thread.sleep(1000);
+			Thread.sleep(3000);
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
 			oExcel.invoke("Quit");
 			ComThread.Release();
 		}
-		
+		System.out.println("Done printing xls "+ filePath);
+		logPrint(filePath);
 	}
 	
 	
 	void printDocx(String filePath) {
+		/*
+		 * Uses jacob to open msword, open the text file and print it
+		 */
+		System.out.println("Printing "+filePath);
 		this.oWord = new ActiveXComponent("Word.Application");
         this.oWord.setProperty("Visible", new Variant(false));
         this.oWord.setProperty("ActivePrinter", new Variant(this.getPrinter()
@@ -457,14 +488,13 @@ public class FilesPrinter implements ActionListener {
         //this.oWord.setProperty("ActivePrinter", new Variant("Microsoft 
         //	Print to PDF"));//for testing
         Dispatch oDocuments = oWord.getProperty("Documents").toDispatch();
-        Dispatch oDocument = Dispatch.call(oDocuments, "Open", filePath)
-        		.toDispatch();
+        Dispatch oDocument = Dispatch.call(oDocuments, "Open", filePath, new Variant(false), new Variant(true)).toDispatch();
         
         Variant Background= new Variant(false);           
         Variant Append = new Variant(false);                       
         Variant Range = new Variant(0); //> print out all document                       
-        //Variant OutputFileName = new Variant(filePath+".pdf");// for testing
-        Variant OutputFileName = new Variant("");//switch from above
+        Variant OutputFileName = new Variant(filePath+".pdf");// for testing
+        //Variant OutputFileName = new Variant("");//switch from above
         Variant From = new Variant("");                       
         Variant To  = new Variant("");                       
         Variant Item  = new Variant(0);                       
@@ -495,19 +525,22 @@ public class FilesPrinter implements ActionListener {
         */
         Dispatch.callN(oDocument, "PrintOut", args);
         Dispatch.callN(oDocument, "Close");
-        Dispatch.callN(oWord, "Quit");
-        this.oWord.safeRelease();
+        try {
+			Thread.sleep(1000);
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			Dispatch.callN(oWord, "Quit");
+	        this.oWord.safeRelease();
+		}
+        System.out.println("Done with "+filePath);
+        logPrint(filePath);
 	}
 	
-	/**
-	 * @return the printer
-	 */
 	PrintService getPrinter() {
 		return this.printer;
 	}
-	/**
-	 * @param 'printer' - the printer to set
-	 */
+
 	void setPrinter(PrintService printer) {
 		this.printer = printer;
 		try {
@@ -526,21 +559,18 @@ public class FilesPrinter implements ActionListener {
 		this.path = p;
 	}//setting the working directory//don't think i need this
 	
-	/**
-	 * @return the printTimer
-	 */
+	
 	int getPrintTimer() {
 		return this.printTimer;
 	}
 
-	/**
-	 * @param printTimer the printTimer to set
-	 */
+
 	void setPrintTimer(int printTimer) {
 		this.printTimer = printTimer;
 	}
 	
 	void askNewPath() {
+		//Asks the user to set the working directory for this program
 		JFileChooser fc = new JFileChooser();
 		fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 		fc.setApproveButtonText("Set");
@@ -559,6 +589,10 @@ public class FilesPrinter implements ActionListener {
 	}//will be called by a button press or something
 	
 	int askNewTimer() {
+		/*
+		 * Asks for user input to set the interval (minutes) between successive
+		 *  file checks - and possibly printing jobs, if new files are found
+		 */
 		int i;
 		try {
 			i = Integer.parseInt(JOptionPane.showInputDialog(null,
@@ -581,6 +615,7 @@ public class FilesPrinter implements ActionListener {
 	*/
 	
 	PrintService askNewPrinter() {
+		//Ask user input for printer selection
 		PrintService[] services = PrintServiceLookup.lookupPrintServices(null, null);
 		PrintService p = (PrintService)JOptionPane.showInputDialog(null,
 												"Available printers:",
@@ -595,16 +630,15 @@ public class FilesPrinter implements ActionListener {
 		return p;
 	}//the method to set new printer
 	
-	/*
-	 * void printFile(File f) {
-	 * 
-	 * }
-	 */
 	
 	void checkFiles() {
+		/*
+		 * A method to get all the files in current working directory and
+		 * put them in an array.
+		 */
 		try (Stream<Path> paths = Files.list(this.getPath())) {
 			this.files = paths
-				.filter(Files::isRegularFile)//not folders or symbolic links or other stuff
+				.filter(Files::isRegularFile)//not folders or symbolic links
 				.toArray(Path[]::new);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -637,8 +671,8 @@ public class FilesPrinter implements ActionListener {
 			setPrintTimer(this.askNewTimer());
 			tfTimer.setText(String.valueOf(getPrintTimer()) + " Minutes");
 			printHandle.cancel(true);
-			printHandle = schEx.scheduleWithFixedDelay(new PrintJob(), 1, getPrintTimer(), TimeUnit.MINUTES);
-			//SECONDS will be set to MINUTES later
+			printHandle = schEx.scheduleWithFixedDelay(new PrintJob(), 1, getPrintTimer(), TimeUnit.SECONDS);
+			//start a PrintJob() now and come again in x minutes
 		}
 		
 	}
