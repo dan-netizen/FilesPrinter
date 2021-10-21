@@ -68,6 +68,9 @@ import com.jacob.activeX.ActiveXComponent;
 import com.jacob.com.ComThread;
 import com.jacob.com.Dispatch;
 import com.jacob.com.Variant;
+
+import net.lingala.zip4j.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
 //import com.jacob.activeX.*;
 //import com.jacob.com.*; no use importing everything, right?
 
@@ -397,6 +400,7 @@ public class FilesPrinter implements ActionListener {
 			switch(aFile) {
 			case "pdf":
 				this.printPDF(path.toAbsolutePath().toString());
+				this.sendToZip(path.toAbsolutePath().toString());
 				break;
 			case "doc":
 			case "docx":
@@ -404,11 +408,13 @@ public class FilesPrinter implements ActionListener {
 			case "txt":
 			case "rtf":
 				this.printDocx(path.toAbsolutePath().toString());
+				this.sendToZip(path.toAbsolutePath().toString());
 				break;
 			case "xls":
 			case "xlsx":
 			case "ods":
 				this.printXlsx(path.toAbsolutePath().toString());
+				this.sendToZip(path.toAbsolutePath().toString());
 				break;
 			default:
 				//need to treat cases with images + exceptions
@@ -416,6 +422,21 @@ public class FilesPrinter implements ActionListener {
 			}		
 		}
 	}//end of printFiles
+	
+	void sendToZip(String filePath) {
+		String zipPath = this.logPath + "\\" + LocalDate.now().toString() + ".zip";
+		ZipFile zf = new ZipFile(zipPath);
+		File sentFile = new File(filePath);
+		try {
+			zf.addFile(sentFile);
+			sentFile.delete();
+		} catch (ZipException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SecurityException e) {
+			e.printStackTrace();
+		}
+	}
 	
 	void logPrint(String printedFile) {
 		PrintWriter pw;

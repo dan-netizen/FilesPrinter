@@ -1,3 +1,0 @@
-D:\Dan\eclipse-workspace\HigeFilesPrinter\asd.txt	17:45:05.990
-D:\Dan\eclipse-workspace\HigeFilesPrinter\Book1.xlsx	17:45:10.703
-D:\Dan\eclipse-workspace\HigeFilesPrinter\Hello.docx	17:45:13.626
