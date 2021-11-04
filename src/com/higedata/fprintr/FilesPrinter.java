@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -26,6 +27,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.chrono.ChronoLocalDateTime;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -334,6 +336,44 @@ public class FilesPrinter implements ActionListener {
 		//time = dateTime.toLocalTime(); use when printing
 	}//checks the folder with the logs (and zips) so many TODOs
 	
+	
+	/*
+	 * Method that returns true if the configuration file exists, false otherwise
+	 */
+	boolean configurationFileExists() {
+		Path programPath = java.nio.file.Paths.get(System.getProperty("user.dir"));
+		programPath.resolve("\\settings.cfg");
+		if (java.nio.file.Files.isRegularFile(programPath, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	
+	void saveSettingsToFile(ArrayList<String> settings) {
+		try (FileWriter fileWriter = new FileWriter("settings.cfg");
+				PrintWriter printWriter = new PrintWriter(fileWriter)){
+			settings.forEach(element -> printWriter.println(element));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
+	
+	ArrayList<String> readSettingsArrayFromFile() {
+		ArrayList<String> settings = null;
+		Path filePath = java.nio.file.Paths.get(System.getProperty("user.dir"));
+		filePath.resolve("\\settings.cfg");
+		try {
+			settings = new ArrayList<String>(Files.readAllLines(filePath));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return settings;
+	}
+	
 	void printPDF(String filePath) {
 		/*
 		 * Checks if printer natively supports PDF printing.
@@ -434,6 +474,12 @@ public class FilesPrinter implements ActionListener {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (SecurityException e) {
+			e.printStackTrace();
+		}
+		try {
+			zf.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
