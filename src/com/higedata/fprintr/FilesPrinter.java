@@ -65,6 +65,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.viewerpreferences.PDViewerPreferences;
 import org.apache.pdfbox.printing.PDFPageable;
 import org.apache.pdfbox.printing.PDFPrintable;
+import org.eclipse.persistence.internal.libraries.asm.util.Printer;
 
 import com.jacob.activeX.ActiveXComponent;
 import com.jacob.com.ComThread;
@@ -104,6 +105,11 @@ public class FilesPrinter implements ActionListener {
 	private int copies;
 	private boolean isDuplex;
 	private String logPath, logPathDaily;
+	
+	/*
+	 * The settings are:
+	 * filesPath?, printer, printTimer, canPrintPDF, numberCopies, isDuplex
+	 */
 	
 	FilesPrinter() {
 		//initVars();
@@ -324,7 +330,7 @@ public class FilesPrinter implements ActionListener {
 		}
 		date = dateTime.toLocalDate();
 		logPathDaily = logPath + "\\" + "printlist" + date.toString() + ".txt";
-		if (!Files.isRegularFile(Paths.get(logPathDaily))) {
+		if (!Files.isRegularFile(Paths.get(logPathDaily))) { 
 			try {
 				Files.createFile(Paths.get(logPathDaily));
 			} catch (Exception e) {
@@ -339,6 +345,7 @@ public class FilesPrinter implements ActionListener {
 	
 	/*
 	 * Method that returns true if the configuration file exists, false otherwise
+	 * Could be made static?
 	 */
 	boolean configurationFileExists() {
 		Path programPath = java.nio.file.Paths.get(System.getProperty("user.dir"));
@@ -350,6 +357,9 @@ public class FilesPrinter implements ActionListener {
 		}
 	}
 	
+	/*
+	 * Method that saves the given settings ArrayList in the configuration file
+	 */
 	void saveSettingsToFile(ArrayList<String> settings) {
 		try (FileWriter fileWriter = new FileWriter("settings.cfg");
 				PrintWriter printWriter = new PrintWriter(fileWriter)){
@@ -358,9 +368,12 @@ public class FilesPrinter implements ActionListener {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
 	}
 	
+	/*
+	 * Method that reads the settings from the configuration file (line by line)
+	 * and returns them as an ArrayList<String>
+	 */
 	ArrayList<String> readSettingsArrayFromFile() {
 		ArrayList<String> settings = null;
 		Path filePath = java.nio.file.Paths.get(System.getProperty("user.dir"));
@@ -373,6 +386,8 @@ public class FilesPrinter implements ActionListener {
 		}
 		return settings;
 	}
+	
+	
 	
 	void printPDF(String filePath) {
 		/*
