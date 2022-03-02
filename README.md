@@ -1,4 +1,5 @@
 # FilesPrinter
+
  small app to print all files in a folder periodically;<br>
  redid this app and the way it works 3 times over;<br>
  still have old methods to convert docx to pdf<br>
@@ -20,3 +21,7 @@
 	#DONE<br>
  <strike>#make logging and archives by date</strike><br>
 	#DONE<br>
+
+
+ Mostly spaghetti code
+ No longer working on this, kept for posterity
