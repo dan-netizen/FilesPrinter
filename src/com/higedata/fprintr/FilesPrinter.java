@@ -516,7 +516,6 @@ public class FilesPrinter implements ActionListener {
 		/*
 		 * Uses jacob to call msexcel, open the spreadsheet and print it
 		 */
-		System.out.println("printing xls "+filePath);
 		ActiveXComponent oExcel = new ActiveXComponent("Excel.Application");
 		oExcel.setProperty("Visible", new Variant(false));
 		//oExcel.setProperty("ActivePrinter", new Variant(this
@@ -533,8 +532,6 @@ public class FilesPrinter implements ActionListener {
 		Variant Collate = Variant.VT_TRUE;
 		Variant PrToFileName = new Variant(filePath + ".pdf");//testing
 		//Variant PrToFileName = Variant.VT_MISSING;
-		//System.out.println("Printing");
-		//Is it printing to file? yes
 		Object[] args = new Object[] {From, To, Copies, Preview, ActivePrinter, PrintToFile, Collate, PrToFileName};
 		/*
 		Dispatch.callN(oWorkbook, "PrintOut", Variant.VT_MISSING, Variant.DEFAULT, new Variant(this.copies),
@@ -542,7 +539,6 @@ public class FilesPrinter implements ActionListener {
 				new Variant(filePath + ".pdf"));
 		*/
 		Dispatch.callN(oWorkbook, "PrintOut", args);
-		System.out.println("printed");
 		Dispatch.callN(oWorkbook, "Close");
 		Dispatch.callN(oWorkbooks, "Close");
 		try {
@@ -553,7 +549,6 @@ public class FilesPrinter implements ActionListener {
 			oExcel.invoke("Quit");
 			ComThread.Release();
 		}
-		System.out.println("Done printing xls "+ filePath);
 		logPrint(filePath);
 	}
 	
@@ -562,7 +557,6 @@ public class FilesPrinter implements ActionListener {
 		/*
 		 * Uses jacob to open msword, open the text file and print it
 		 */
-		System.out.println("Printing "+filePath);
 		this.oWord = new ActiveXComponent("Word.Application");
         this.oWord.setProperty("Visible", new Variant(false));
         this.oWord.setProperty("ActivePrinter", new Variant(this.getPrinter()
@@ -615,7 +609,6 @@ public class FilesPrinter implements ActionListener {
 			Dispatch.callN(oWord, "Quit");
 	        this.oWord.safeRelease();
 		}
-        System.out.println("Done with "+filePath);
         logPrint(filePath);
 	}
 	

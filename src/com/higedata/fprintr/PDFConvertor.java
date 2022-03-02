@@ -36,7 +36,6 @@ public class PDFConvertor {
 		exporter.export(wmlp , fos); 
 		
 		fos.close();
-		System.out.println("done");
 	}
 
 }

@@ -11,7 +11,6 @@ class WordDocumentPrint implements DocumentPrintStrategy {
 	public void printDocumnt(String documentPath, java.util.ArrayList<String> settings) {
 		// TODO Auto-generated method stub
 		
-		System.out.println("Printing "+documentPath);
 		ActiveXComponent oWord = new ActiveXComponent("Word.Application");
 		oWord.setProperty("Visible", new Variant(false));
 		oWord.setProperty("ActivePrinter", new Variant(oWord.getProperty("ActivePrinter")));//TODO printer issue
@@ -63,7 +62,6 @@ class WordDocumentPrint implements DocumentPrintStrategy {
 			Dispatch.callN(oWord, "Quit");
 			oWord.safeRelease();
 		}
-        System.out.println("Done with "+documentPath);
 	}
 
 }

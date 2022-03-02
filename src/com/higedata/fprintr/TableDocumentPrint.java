@@ -12,7 +12,6 @@ class TableDocumentPrint implements DocumentPrintStrategy {
 	@Override
 	public void printDocumnt(String documentPath, java.util.ArrayList<String> settings) {
 		// TODO Auto-generated method stub
-		System.out.println("printing xls " + documentPath);
 		ActiveXComponent oExcel = new ActiveXComponent("Excel.Application");
 		oExcel.setProperty("Visible", new Variant(false));
 		//oExcel.setProperty("ActivePrinter", new Variant(this
@@ -29,8 +28,6 @@ class TableDocumentPrint implements DocumentPrintStrategy {
 		Variant Collate = Variant.VT_TRUE;
 		Variant PrToFileName = new Variant(documentPath + ".pdf");//testing
 		//Variant PrToFileName = Variant.VT_MISSING;
-		//System.out.println("Printing");
-		//Is it printing to file? yes
 		Object[] args = new Object[] {From, To, Copies, Preview, ActivePrinter, PrintToFile, Collate, PrToFileName};
 		/*
 		Dispatch.callN(oWorkbook, "PrintOut", Variant.VT_MISSING, Variant.DEFAULT, new Variant(this.copies),
@@ -38,7 +35,6 @@ class TableDocumentPrint implements DocumentPrintStrategy {
 				new Variant(filePath + ".pdf"));
 		*/
 		Dispatch.callN(oWorkbook, "PrintOut", args);
-		System.out.println("printed");
 		Dispatch.callN(oWorkbook, "Close");
 		Dispatch.callN(oWorkbooks, "Close");
 		try {
@@ -49,7 +45,6 @@ class TableDocumentPrint implements DocumentPrintStrategy {
 			oExcel.invoke("Quit");
 			ComThread.Release();
 		}
-		System.out.println("Done printing xls "+ documentPath);
 	}
 
 }
